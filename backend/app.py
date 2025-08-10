@@ -118,12 +118,30 @@ async def startup_event():
     if os.path.exists(docs_path):
         print("Loading initial documents...")
         try:
-            courses, chunks = rag_system.add_course_folder(
-                docs_path, clear_existing=False
-            )
-            print(f"Loaded {courses} courses with {chunks} chunks")
+            # Check if we have existing courses
+            existing_count = rag_system.get_course_analytics()["total_courses"]
+            print(f"Found {existing_count} existing courses in database")
+            
+            if existing_count == 0:
+                print("No existing courses found, loading from docs folder...")
+                courses, chunks = rag_system.add_course_folder(
+                    docs_path, clear_existing=True
+                )
+                print(f"Loaded {courses} courses with {chunks} chunks")
+            else:
+                print(f"Using existing {existing_count} courses from database")
+                # Verify courses are actually accessible
+                test_results = rag_system.vector_store.search("test", limit=1)
+                if test_results.error or test_results.is_empty():
+                    print("Existing data appears corrupted, reloading...")
+                    courses, chunks = rag_system.add_course_folder(
+                        docs_path, clear_existing=True
+                    )
+                    print(f"Reloaded {courses} courses with {chunks} chunks")
         except Exception as e:
             print(f"Error loading documents: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 import os

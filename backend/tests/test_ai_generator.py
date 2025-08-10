@@ -218,8 +218,8 @@ class TestAIGenerator:
             final_call_args = mock_client.messages.create.call_args_list[1][1]
             messages = final_call_args["messages"]
 
-            # Should have: user message, assistant tool use, user tool results
-            assert len(messages) == 3
+            # Should have: user message, assistant tool use, user tool results, user transition prompt
+            assert len(messages) == 4
             assert messages[0]["role"] == "user"
             assert messages[0]["content"] == "What's in lesson 1?"
             assert messages[1]["role"] == "assistant"
@@ -228,6 +228,8 @@ class TestAIGenerator:
             assert messages[2]["content"][0]["type"] == "tool_result"
             assert messages[2]["content"][0]["tool_use_id"] == "tool_123"
             assert messages[2]["content"][0]["content"] == "Mock search result"
+            assert messages[3]["role"] == "user"  # Transition prompt
+            assert "Based on the search results above" in messages[3]["content"]
 
     def test_generate_response_tool_execution_error(self, mock_tool_manager):
         """Test handling when tool execution fails"""
@@ -519,9 +521,277 @@ class TestAIGenerator:
 
             # Verify error was passed to Claude in tool result
             final_call_args = mock_client.messages.create.call_args_list[1][1]
-            tool_result_message = final_call_args["messages"][-1]
+            messages = final_call_args["messages"]
+            # Tool result should be the second-to-last message (before transition prompt)
+            tool_result_message = messages[-2]
             assert tool_result_message["role"] == "user"
             assert (
                 "Error: Tool execution failed"
                 in tool_result_message["content"][0]["content"]
             )
+
+    def test_round_transition_prompt_added(self, mock_tool_manager):
+        """Test that round transition prompt is added after Round 1"""
+        with patch("ai_generator.anthropic.Anthropic") as mock_anthropic:
+            mock_client = Mock()
+            mock_anthropic.return_value = mock_client
+
+            # Round 1: Tool use response
+            round1_response = Mock()
+            round1_response.stop_reason = "tool_use"
+            round1_response.content = [Mock()]
+            round1_response.content[0].type = "tool_use"
+            round1_response.content[0].name = "search_course_content"
+            round1_response.content[0].id = "tool_1"
+            round1_response.content[0].input = {"query": "test"}
+
+            # Round 2: Direct response (no more tools)
+            round2_response = Mock()
+            round2_response.stop_reason = "stop"
+            round2_response.content = [Mock()]
+            round2_response.content[0].text = "Final answer"
+
+            mock_client.messages.create.side_effect = [round1_response, round2_response]
+
+            generator = AIGenerator("test-key", "claude-sonnet-4-20250514")
+
+            response = generator.generate_response(
+                "Test query",
+                tools=mock_tool_manager.get_tool_definitions(),
+                tool_manager=mock_tool_manager
+            )
+
+            # Verify response
+            assert response == "Final answer"
+
+            # Verify 2 API calls were made
+            assert mock_client.messages.create.call_count == 2
+
+            # Check that round transition prompt was added
+            round2_call_args = mock_client.messages.create.call_args_list[1][1]
+            messages = round2_call_args["messages"]
+            
+            # Should have: user query, assistant tool use, user tool results, user transition prompt
+            assert len(messages) == 4
+            assert messages[0]["role"] == "user"  # Original query
+            assert messages[1]["role"] == "assistant"  # Tool use response
+            assert messages[2]["role"] == "user"  # Tool results
+            assert messages[3]["role"] == "user"  # Transition prompt
+            
+            # Verify transition prompt content
+            transition_content = messages[3]["content"]
+            assert "Based on the search results above" in transition_content
+            assert "additional information" in transition_content
+
+    def test_sequential_tool_calling_with_intermediate_reasoning(self, mock_tool_manager):
+        """Test true sequential tool calling where Claude reasons between rounds"""
+        with patch("ai_generator.anthropic.Anthropic") as mock_anthropic:
+            mock_client = Mock()
+            mock_anthropic.return_value = mock_client
+
+            # Round 1: Get course outline
+            round1_response = Mock()
+            round1_response.stop_reason = "tool_use"
+            round1_response.content = [Mock()]
+            round1_response.content[0].type = "tool_use"
+            round1_response.content[0].name = "get_course_outline"
+            round1_response.content[0].id = "tool_1"
+            round1_response.content[0].input = {"course_name": "Computer Use"}
+
+            # Round 2: Search based on Round 1 results
+            round2_response = Mock()
+            round2_response.stop_reason = "tool_use"
+            round2_response.content = [Mock()]
+            round2_response.content[0].type = "tool_use"
+            round2_response.content[0].name = "search_course_content"
+            round2_response.content[0].id = "tool_2"
+            round2_response.content[0].input = {"query": "API Integration patterns"}
+
+            # Final response after 2 rounds of tools
+            final_response = Mock()
+            final_response.content = [Mock()]
+            final_response.content[0].text = "Complete answer with both outline and content"
+
+            mock_client.messages.create.side_effect = [
+                round1_response, 
+                round2_response, 
+                final_response
+            ]
+
+            # Mock tool manager to return different results for each tool
+            mock_tool_manager.execute_tool.side_effect = [
+                "Course outline with lesson 4: API Integration",
+                "Detailed API integration content from lessons"
+            ]
+
+            generator = AIGenerator("test-key", "claude-sonnet-4-20250514")
+
+            response = generator.generate_response(
+                "Find content similar to lesson 4 of Computer Use course",
+                tools=mock_tool_manager.get_tool_definitions(),
+                tool_manager=mock_tool_manager
+            )
+
+            # Verify final response
+            assert response == "Complete answer with both outline and content"
+
+            # Verify both tools were executed
+            assert mock_tool_manager.execute_tool.call_count == 2
+            mock_tool_manager.execute_tool.assert_any_call(
+                "get_course_outline", course_name="Computer Use"
+            )
+            mock_tool_manager.execute_tool.assert_any_call(
+                "search_course_content", query="API Integration patterns"
+            )
+
+            # Verify 3 API calls: Round 1, Round 2, Final
+            assert mock_client.messages.create.call_count == 3
+
+    def test_tools_available_in_round_two(self, mock_tool_manager):
+        """Test that tools are still available for Claude to use in Round 2"""
+        with patch("ai_generator.anthropic.Anthropic") as mock_anthropic:
+            mock_client = Mock()
+            mock_anthropic.return_value = mock_client
+
+            # Round 1: Tool use
+            round1_response = Mock()
+            round1_response.stop_reason = "tool_use"
+            round1_response.content = [Mock()]
+            round1_response.content[0].type = "tool_use"
+            round1_response.content[0].name = "search_course_content"
+            round1_response.content[0].id = "tool_1"
+            round1_response.content[0].input = {"query": "test"}
+
+            # Round 2: Another tool use (the key test)
+            round2_response = Mock()
+            round2_response.stop_reason = "tool_use"
+            round2_response.content = [Mock()]
+            round2_response.content[0].type = "tool_use"
+            round2_response.content[0].name = "get_course_outline"
+            round2_response.content[0].id = "tool_2"
+            round2_response.content[0].input = {"course_name": "Test Course"}
+
+            # Final response
+            final_response = Mock()
+            final_response.content = [Mock()]
+            final_response.content[0].text = "Answer using both tools"
+
+            mock_client.messages.create.side_effect = [
+                round1_response,
+                round2_response,
+                final_response
+            ]
+
+            generator = AIGenerator("test-key", "claude-sonnet-4-20250514")
+
+            response = generator.generate_response(
+                "Complex query",
+                tools=mock_tool_manager.get_tool_definitions(),
+                tool_manager=mock_tool_manager
+            )
+
+            # Verify tools were available in both rounds
+            call_args_list = mock_client.messages.create.call_args_list
+            
+            # Round 1 should have tools
+            round1_args = call_args_list[0][1]
+            assert "tools" in round1_args
+            assert round1_args["tools"] == mock_tool_manager.get_tool_definitions()
+            
+            # Round 2 should also have tools (this is the critical fix)
+            round2_args = call_args_list[1][1]
+            assert "tools" in round2_args
+            assert round2_args["tools"] == mock_tool_manager.get_tool_definitions()
+
+    def test_complex_multi_part_query_scenario(self, mock_tool_manager):
+        """Test a realistic complex query that benefits from sequential tool calling"""
+        with patch("ai_generator.anthropic.Anthropic") as mock_anthropic:
+            mock_client = Mock()
+            mock_anthropic.return_value = mock_client
+
+            # Simulate the example from requirements:
+            # "Search for a course that discusses the same topic as lesson 4 of course X"
+            
+            # Round 1: Get outline to find what lesson 4 covers
+            round1_response = Mock()
+            round1_response.stop_reason = "tool_use"
+            round1_response.content = [Mock()]
+            round1_response.content[0].type = "tool_use"
+            round1_response.content[0].name = "get_course_outline"
+            round1_response.content[0].id = "tool_1"
+            round1_response.content[0].input = {"course_name": "Computer Use"}
+
+            # Round 2: Search for courses with similar content
+            round2_response = Mock()
+            round2_response.stop_reason = "tool_use"
+            round2_response.content = [Mock()]
+            round2_response.content[0].type = "tool_use"
+            round2_response.content[0].name = "search_course_content"  
+            round2_response.content[0].id = "tool_2"
+            round2_response.content[0].input = {"query": "API Integration similar content"}
+
+            # Final comprehensive answer
+            final_response = Mock()
+            final_response.content = [Mock()]
+            final_response.content[0].text = "The MCP course covers similar API integration topics to lesson 4 of Computer Use course"
+
+            mock_client.messages.create.side_effect = [
+                round1_response,
+                round2_response, 
+                final_response
+            ]
+
+            # Mock realistic tool responses
+            mock_tool_manager.execute_tool.side_effect = [
+                "Course outline shows Lesson 4: API Integration Patterns",
+                "Found similar API integration content in MCP course lessons 3-5"
+            ]
+
+            generator = AIGenerator("test-key", "claude-sonnet-4-20250514")
+
+            response = generator.generate_response(
+                "Find a course that discusses the same topic as lesson 4 of Computer Use course",
+                tools=mock_tool_manager.get_tool_definitions(),
+                tool_manager=mock_tool_manager
+            )
+
+            # Verify the complete workflow
+            assert "MCP course covers similar API integration" in response
+            assert mock_tool_manager.execute_tool.call_count == 2
+            assert mock_client.messages.create.call_count == 3
+
+    def test_early_termination_sufficient_info(self, mock_tool_manager):
+        """Test early termination when Claude has sufficient info after Round 1"""
+        with patch("ai_generator.anthropic.Anthropic") as mock_anthropic:
+            mock_client = Mock()
+            mock_anthropic.return_value = mock_client
+
+            # Round 1: Tool use
+            round1_response = Mock()
+            round1_response.stop_reason = "tool_use"
+            round1_response.content = [Mock()]
+            round1_response.content[0].type = "tool_use"
+            round1_response.content[0].name = "search_course_content"
+            round1_response.content[0].id = "tool_1"
+            round1_response.content[0].input = {"query": "simple query"}
+
+            # Round 2: Claude decides it has enough info, provides direct answer
+            round2_response = Mock()
+            round2_response.stop_reason = "stop"
+            round2_response.content = [Mock()]
+            round2_response.content[0].text = "I have sufficient information to answer"
+
+            mock_client.messages.create.side_effect = [round1_response, round2_response]
+
+            generator = AIGenerator("test-key", "claude-sonnet-4-20250514")
+
+            response = generator.generate_response(
+                "Simple query with clear answer",
+                tools=mock_tool_manager.get_tool_definitions(),
+                tool_manager=mock_tool_manager
+            )
+
+            # Verify early termination
+            assert response == "I have sufficient information to answer"
+            assert mock_tool_manager.execute_tool.call_count == 1
+            assert mock_client.messages.create.call_count == 2  # Round 1 + Round 2 direct response
