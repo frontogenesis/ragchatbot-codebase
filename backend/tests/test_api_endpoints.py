@@ -106,26 +106,33 @@ class TestAPIEndpoints:
 class TestAPIErrorHandling:
     """Test suite for API error handling"""
 
-    def test_query_endpoint_with_rag_system_error(self, client):
-        """Test /api/query endpoint structure (error injection requires app-level mocking)"""
-        # This test demonstrates the structure for error handling testing
-        # In a real scenario, you'd inject the error at the app level
+    def test_query_endpoint_with_rag_system_error(self, error_client):
+        """Test /api/query endpoint error handling when RAG system fails"""
         request_data = {"query": "test query"}
-        response = client.post("/api/query", json=request_data)
+        response = error_client.post("/api/query", json=request_data)
+        
+        assert response.status_code == 500
+        data = response.json()
+        assert "detail" in data
+        assert "RAG system error" in data["detail"]
 
-        # With current mock setup, this should work normally
-        assert response.status_code == 200
-
-        # To test actual error handling, you would need to:
-        # 1. Create a separate test app fixture with error-prone mocks
-        # 2. Or use dependency injection to override the RAG system
-        # 3. Or test error conditions in the actual app.py module tests
-
-    def test_courses_endpoint_with_rag_system_error(self, client):
+    def test_courses_endpoint_with_rag_system_error(self, error_client):
         """Test /api/courses endpoint when RAG system raises an exception"""
-        # Similar to above, this would need app-level error injection
-        response = client.get("/api/courses")
-        assert response.status_code == 200
+        response = error_client.get("/api/courses")
+        assert response.status_code == 500
+        data = response.json()
+        assert "detail" in data
+        assert "Course analytics error" in data["detail"]
+
+    def test_clear_session_endpoint_with_error(self, error_client):
+        """Test /api/clear-session endpoint error handling"""
+        request_data = {"session_id": "test-session-123"}
+        response = error_client.post("/api/clear-session", json=request_data)
+        
+        assert response.status_code == 500
+        data = response.json()
+        assert "detail" in data
+        assert "Session clear error" in data["detail"]
 
 
 @pytest.mark.api
