@@ -558,7 +558,7 @@ class TestAIGenerator:
             response = generator.generate_response(
                 "Test query",
                 tools=mock_tool_manager.get_tool_definitions(),
-                tool_manager=mock_tool_manager
+                tool_manager=mock_tool_manager,
             )
 
             # Verify response
@@ -570,20 +570,22 @@ class TestAIGenerator:
             # Check that round transition prompt was added
             round2_call_args = mock_client.messages.create.call_args_list[1][1]
             messages = round2_call_args["messages"]
-            
+
             # Should have: user query, assistant tool use, user tool results, user transition prompt
             assert len(messages) == 4
             assert messages[0]["role"] == "user"  # Original query
             assert messages[1]["role"] == "assistant"  # Tool use response
             assert messages[2]["role"] == "user"  # Tool results
             assert messages[3]["role"] == "user"  # Transition prompt
-            
+
             # Verify transition prompt content
             transition_content = messages[3]["content"]
             assert "Based on the search results above" in transition_content
             assert "additional information" in transition_content
 
-    def test_sequential_tool_calling_with_intermediate_reasoning(self, mock_tool_manager):
+    def test_sequential_tool_calling_with_intermediate_reasoning(
+        self, mock_tool_manager
+    ):
         """Test true sequential tool calling where Claude reasons between rounds"""
         with patch("ai_generator.anthropic.Anthropic") as mock_anthropic:
             mock_client = Mock()
@@ -610,18 +612,20 @@ class TestAIGenerator:
             # Final response after 2 rounds of tools
             final_response = Mock()
             final_response.content = [Mock()]
-            final_response.content[0].text = "Complete answer with both outline and content"
+            final_response.content[0].text = (
+                "Complete answer with both outline and content"
+            )
 
             mock_client.messages.create.side_effect = [
-                round1_response, 
-                round2_response, 
-                final_response
+                round1_response,
+                round2_response,
+                final_response,
             ]
 
             # Mock tool manager to return different results for each tool
             mock_tool_manager.execute_tool.side_effect = [
                 "Course outline with lesson 4: API Integration",
-                "Detailed API integration content from lessons"
+                "Detailed API integration content from lessons",
             ]
 
             generator = AIGenerator("test-key", "claude-sonnet-4-20250514")
@@ -629,7 +633,7 @@ class TestAIGenerator:
             response = generator.generate_response(
                 "Find content similar to lesson 4 of Computer Use course",
                 tools=mock_tool_manager.get_tool_definitions(),
-                tool_manager=mock_tool_manager
+                tool_manager=mock_tool_manager,
             )
 
             # Verify final response
@@ -679,7 +683,7 @@ class TestAIGenerator:
             mock_client.messages.create.side_effect = [
                 round1_response,
                 round2_response,
-                final_response
+                final_response,
             ]
 
             generator = AIGenerator("test-key", "claude-sonnet-4-20250514")
@@ -687,17 +691,17 @@ class TestAIGenerator:
             response = generator.generate_response(
                 "Complex query",
                 tools=mock_tool_manager.get_tool_definitions(),
-                tool_manager=mock_tool_manager
+                tool_manager=mock_tool_manager,
             )
 
             # Verify tools were available in both rounds
             call_args_list = mock_client.messages.create.call_args_list
-            
+
             # Round 1 should have tools
             round1_args = call_args_list[0][1]
             assert "tools" in round1_args
             assert round1_args["tools"] == mock_tool_manager.get_tool_definitions()
-            
+
             # Round 2 should also have tools (this is the critical fix)
             round2_args = call_args_list[1][1]
             assert "tools" in round2_args
@@ -711,7 +715,7 @@ class TestAIGenerator:
 
             # Simulate the example from requirements:
             # "Search for a course that discusses the same topic as lesson 4 of course X"
-            
+
             # Round 1: Get outline to find what lesson 4 covers
             round1_response = Mock()
             round1_response.stop_reason = "tool_use"
@@ -726,25 +730,29 @@ class TestAIGenerator:
             round2_response.stop_reason = "tool_use"
             round2_response.content = [Mock()]
             round2_response.content[0].type = "tool_use"
-            round2_response.content[0].name = "search_course_content"  
+            round2_response.content[0].name = "search_course_content"
             round2_response.content[0].id = "tool_2"
-            round2_response.content[0].input = {"query": "API Integration similar content"}
+            round2_response.content[0].input = {
+                "query": "API Integration similar content"
+            }
 
             # Final comprehensive answer
             final_response = Mock()
             final_response.content = [Mock()]
-            final_response.content[0].text = "The MCP course covers similar API integration topics to lesson 4 of Computer Use course"
+            final_response.content[0].text = (
+                "The MCP course covers similar API integration topics to lesson 4 of Computer Use course"
+            )
 
             mock_client.messages.create.side_effect = [
                 round1_response,
-                round2_response, 
-                final_response
+                round2_response,
+                final_response,
             ]
 
             # Mock realistic tool responses
             mock_tool_manager.execute_tool.side_effect = [
                 "Course outline shows Lesson 4: API Integration Patterns",
-                "Found similar API integration content in MCP course lessons 3-5"
+                "Found similar API integration content in MCP course lessons 3-5",
             ]
 
             generator = AIGenerator("test-key", "claude-sonnet-4-20250514")
@@ -752,7 +760,7 @@ class TestAIGenerator:
             response = generator.generate_response(
                 "Find a course that discusses the same topic as lesson 4 of Computer Use course",
                 tools=mock_tool_manager.get_tool_definitions(),
-                tool_manager=mock_tool_manager
+                tool_manager=mock_tool_manager,
             )
 
             # Verify the complete workflow
@@ -788,10 +796,12 @@ class TestAIGenerator:
             response = generator.generate_response(
                 "Simple query with clear answer",
                 tools=mock_tool_manager.get_tool_definitions(),
-                tool_manager=mock_tool_manager
+                tool_manager=mock_tool_manager,
             )
 
             # Verify early termination
             assert response == "I have sufficient information to answer"
             assert mock_tool_manager.execute_tool.call_count == 1
-            assert mock_client.messages.create.call_count == 2  # Round 1 + Round 2 direct response
+            assert (
+                mock_client.messages.create.call_count == 2
+            )  # Round 1 + Round 2 direct response

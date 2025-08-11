@@ -121,7 +121,7 @@ async def startup_event():
             # Check if we have existing courses
             existing_count = rag_system.get_course_analytics()["total_courses"]
             print(f"Found {existing_count} existing courses in database")
-            
+
             if existing_count == 0:
                 print("No existing courses found, loading from docs folder...")
                 courses, chunks = rag_system.add_course_folder(
@@ -141,6 +141,7 @@ async def startup_event():
         except Exception as e:
             print(f"Error loading documents: {e}")
             import traceback
+
             traceback.print_exc()
 
 

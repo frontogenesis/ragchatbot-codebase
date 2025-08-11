@@ -147,7 +147,7 @@ Provide only the direct answer to what was asked.
             if response.stop_reason == "tool_use" and tool_manager:
                 # Execute tools and update messages
                 messages = self._handle_tool_execution(response, messages, tool_manager)
-                
+
                 # Add round transition prompt after Round 1 to enable Round 2 reasoning
                 if round_num == 1:
                     messages = self._add_round_transition_prompt(messages, round_num)
@@ -173,7 +173,7 @@ Provide only the direct answer to what was asked.
     def _handle_tool_execution(self, initial_response, messages: List, tool_manager):
         """
         Handle execution of tool calls and update message history.
-        
+
         This method executes all tool calls from Claude's response and adds the results
         back to the message history, allowing for sequential rounds of tool calling.
 
@@ -223,11 +223,11 @@ Provide only the direct answer to what was asked.
     def _add_round_transition_prompt(self, messages: List, round_num: int) -> List:
         """
         Add a prompt to guide Claude's decision for the next round.
-        
+
         Args:
             messages: Current message history
             round_num: Current round number (1-based)
-            
+
         Returns:
             Updated messages with transition prompt
         """
@@ -244,7 +244,7 @@ Consider:
 - Would searching for related or more specific terms improve the answer?
 - Do you need to compare information from different courses or lessons?
 - Would getting more detailed information help provide a better response?"""
-            
+
             messages.append({"role": "user", "content": transition_prompt})
-        
+
         return messages

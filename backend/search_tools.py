@@ -89,23 +89,23 @@ class CourseSearchTool(Tool):
 
         # Format and return results
         formatted_result = self._format_results(results)
-        
+
         # Ensure sources are always tracked, even if formatting fails
-        if not hasattr(self, 'last_sources') or not self.last_sources:
+        if not hasattr(self, "last_sources") or not self.last_sources:
             self.last_sources = []
             self.last_source_links = []
-            
+
             # Try to extract basic source info even if formatting failed
             for meta in results.metadata:
                 course_title = meta.get("course_title", "unknown")
                 lesson_num = meta.get("lesson_number")
-                
+
                 source = course_title
                 if lesson_num is not None:
                     source += f" - Lesson {lesson_num}"
                 self.last_sources.append(source)
                 self.last_source_links.append(None)  # Safe fallback
-        
+
         return formatted_result
 
     def _format_results(self, results: SearchResults) -> str:

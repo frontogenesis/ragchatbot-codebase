@@ -1,6 +1,7 @@
 import os
 import sys
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import MagicMock, Mock, patch
+
 import pytest
 
 # Add parent directory to path to import modules
@@ -30,21 +31,27 @@ class TestAIGeneratorToolCalling:
             # Mock final response when tool fails
             final_response = Mock()
             final_response.content = [Mock()]
-            final_response.content[0].text = "I'm unable to find information about that topic."
+            final_response.content[0].text = (
+                "I'm unable to find information about that topic."
+            )
 
             mock_client.messages.create.side_effect = [tool_response, final_response]
 
             # Create mock tool manager that fails
             mock_tool_manager = Mock()
-            mock_tool_manager.get_tool_definitions.return_value = [{"name": "search_course_content"}]
-            mock_tool_manager.execute_tool.return_value = "No relevant content found."  # Tool returns empty result
+            mock_tool_manager.get_tool_definitions.return_value = [
+                {"name": "search_course_content"}
+            ]
+            mock_tool_manager.execute_tool.return_value = (
+                "No relevant content found."  # Tool returns empty result
+            )
 
             generator = AIGenerator("test-key", "claude-sonnet-4-20250514")
 
             response = generator.generate_response(
                 "What is covered in lesson 1?",
                 tools=mock_tool_manager.get_tool_definitions(),
-                tool_manager=mock_tool_manager
+                tool_manager=mock_tool_manager,
             )
 
             # This simulates the "Query failed" scenario - AI can't find content
@@ -68,13 +75,17 @@ class TestAIGeneratorToolCalling:
             # Mock AI's response to empty tool results
             final_response = Mock()
             final_response.content = [Mock()]
-            final_response.content[0].text = "I couldn't find any relevant information in the course materials."
+            final_response.content[0].text = (
+                "I couldn't find any relevant information in the course materials."
+            )
 
             mock_client.messages.create.side_effect = [tool_response, final_response]
 
             # Mock tool manager returning empty results (simulating MAX_RESULTS=0 bug)
             mock_tool_manager = Mock()
-            mock_tool_manager.get_tool_definitions.return_value = [{"name": "search_course_content"}]
+            mock_tool_manager.get_tool_definitions.return_value = [
+                {"name": "search_course_content"}
+            ]
             mock_tool_manager.execute_tool.return_value = "No relevant content found."
 
             generator = AIGenerator("test-key", "claude-sonnet-4-20250514")
@@ -82,7 +93,7 @@ class TestAIGeneratorToolCalling:
             response = generator.generate_response(
                 "What topics are covered in the course?",
                 tools=mock_tool_manager.get_tool_definitions(),
-                tool_manager=mock_tool_manager
+                tool_manager=mock_tool_manager,
             )
 
             # Verify the AI received empty tool results and responded appropriately
@@ -115,20 +126,22 @@ class TestAIGeneratorToolCalling:
 
             # Mock tool manager that raises exception for invalid parameters
             mock_tool_manager = Mock()
-            mock_tool_manager.get_tool_definitions.return_value = [{
-                "name": "search_course_content",
-                "input_schema": {
-                    "required": ["query"]
+            mock_tool_manager.get_tool_definitions.return_value = [
+                {
+                    "name": "search_course_content",
+                    "input_schema": {"required": ["query"]},
                 }
-            }]
-            mock_tool_manager.execute_tool.side_effect = Exception("Missing required parameter: query")
+            ]
+            mock_tool_manager.execute_tool.side_effect = Exception(
+                "Missing required parameter: query"
+            )
 
             generator = AIGenerator("test-key", "claude-sonnet-4-20250514")
 
             response = generator.generate_response(
                 "Search for information",
                 tools=mock_tool_manager.get_tool_definitions(),
-                tool_manager=mock_tool_manager
+                tool_manager=mock_tool_manager,
             )
 
             # Should handle tool parameter errors gracefully
@@ -149,7 +162,7 @@ class TestAIGeneratorToolCalling:
             tool_response.content[0].id = "tool_123"
             tool_response.content[0].input = {
                 "query": "lesson 1 content",
-                "course_name": "Nonexistent Course"
+                "course_name": "Nonexistent Course",
             }
 
             # Mock AI's response to course not found error
@@ -161,15 +174,19 @@ class TestAIGeneratorToolCalling:
 
             # Mock tool returning course not found error
             mock_tool_manager = Mock()
-            mock_tool_manager.get_tool_definitions.return_value = [{"name": "search_course_content"}]
-            mock_tool_manager.execute_tool.return_value = "No course found matching 'Nonexistent Course'"
+            mock_tool_manager.get_tool_definitions.return_value = [
+                {"name": "search_course_content"}
+            ]
+            mock_tool_manager.execute_tool.return_value = (
+                "No course found matching 'Nonexistent Course'"
+            )
 
             generator = AIGenerator("test-key", "claude-sonnet-4-20250514")
 
             response = generator.generate_response(
                 "What's in lesson 1 of Nonexistent Course?",
                 tools=mock_tool_manager.get_tool_definitions(),
-                tool_manager=mock_tool_manager
+                tool_manager=mock_tool_manager,
             )
 
             # Should indicate course not found
@@ -182,10 +199,14 @@ class TestAIGeneratorToolCalling:
             mock_anthropic.return_value = mock_client
 
             # Mock API failure
-            mock_client.messages.create.side_effect = Exception("API Error: Invalid API key")
+            mock_client.messages.create.side_effect = Exception(
+                "API Error: Invalid API key"
+            )
 
             mock_tool_manager = Mock()
-            mock_tool_manager.get_tool_definitions.return_value = [{"name": "search_course_content"}]
+            mock_tool_manager.get_tool_definitions.return_value = [
+                {"name": "search_course_content"}
+            ]
 
             generator = AIGenerator("invalid-key", "claude-sonnet-4-20250514")
 
@@ -194,9 +215,9 @@ class TestAIGeneratorToolCalling:
                 generator.generate_response(
                     "What is AI?",
                     tools=mock_tool_manager.get_tool_definitions(),
-                    tool_manager=mock_tool_manager
+                    tool_manager=mock_tool_manager,
                 )
-            
+
             assert "API Error" in str(exc_info.value)
 
     def test_generate_response_with_tool_timeout_simulation(self):
@@ -217,21 +238,27 @@ class TestAIGeneratorToolCalling:
             # Mock final response after timeout
             final_response = Mock()
             final_response.content = [Mock()]
-            final_response.content[0].text = "The search took too long to complete. Please try a simpler query."
+            final_response.content[0].text = (
+                "The search took too long to complete. Please try a simpler query."
+            )
 
             mock_client.messages.create.side_effect = [tool_response, final_response]
 
             # Mock tool manager that simulates timeout
             mock_tool_manager = Mock()
-            mock_tool_manager.get_tool_definitions.return_value = [{"name": "search_course_content"}]
-            mock_tool_manager.execute_tool.return_value = "Search error: Request timeout after 30 seconds"
+            mock_tool_manager.get_tool_definitions.return_value = [
+                {"name": "search_course_content"}
+            ]
+            mock_tool_manager.execute_tool.return_value = (
+                "Search error: Request timeout after 30 seconds"
+            )
 
             generator = AIGenerator("test-key", "claude-sonnet-4-20250514")
 
             response = generator.generate_response(
                 "Analyze all course content in detail",
                 tools=mock_tool_manager.get_tool_definitions(),
-                tool_manager=mock_tool_manager
+                tool_manager=mock_tool_manager,
             )
 
             # Should handle timeout gracefully
@@ -248,24 +275,24 @@ class TestAIGeneratorToolCalling:
                 {
                     "query": "What is covered in lesson 1?",
                     "expected_tool": "search_course_content",
-                    "expected_params": {"query": "lesson 1 content"}
+                    "expected_params": {"query": "lesson 1 content"},
                 },
                 {
                     "query": "Show me the course outline",
-                    "expected_tool": "get_course_outline", 
-                    "expected_params": {"course_name": "course"}
+                    "expected_tool": "get_course_outline",
+                    "expected_params": {"course_name": "course"},
                 },
                 {
                     "query": "What is machine learning?",  # General question
                     "expected_tool": None,  # Should not use tools for general knowledge
-                    "expected_params": None
-                }
+                    "expected_params": None,
+                },
             ]
 
             mock_tool_manager = Mock()
             mock_tool_manager.get_tool_definitions.return_value = [
                 {"name": "search_course_content"},
-                {"name": "get_course_outline"}
+                {"name": "get_course_outline"},
             ]
 
             generator = AIGenerator("test-key", "claude-sonnet-4-20250514")
@@ -289,7 +316,10 @@ class TestAIGeneratorToolCalling:
                     final_response.content = [Mock()]
                     final_response.content[0].text = "Tool-based response"
 
-                    mock_client.messages.create.side_effect = [tool_response, final_response]
+                    mock_client.messages.create.side_effect = [
+                        tool_response,
+                        final_response,
+                    ]
                     mock_tool_manager.execute_tool.return_value = "Tool result"
                 else:
                     # Mock direct response without tool use
@@ -303,7 +333,7 @@ class TestAIGeneratorToolCalling:
                 response = generator.generate_response(
                     scenario["query"],
                     tools=mock_tool_manager.get_tool_definitions(),
-                    tool_manager=mock_tool_manager
+                    tool_manager=mock_tool_manager,
                 )
 
                 if scenario["expected_tool"]:
@@ -342,19 +372,25 @@ class TestAIGeneratorToolCalling:
             # Mock final response after tool failure
             final_response = Mock()
             final_response.content = [Mock()]
-            final_response.content[0].text = "I found the course outline but couldn't retrieve specific lesson content."
+            final_response.content[0].text = (
+                "I found the course outline but couldn't retrieve specific lesson content."
+            )
 
-            mock_client.messages.create.side_effect = [round1_response, round2_response, final_response]
+            mock_client.messages.create.side_effect = [
+                round1_response,
+                round2_response,
+                final_response,
+            ]
 
             # Mock tool manager with mixed success/failure
             mock_tool_manager = Mock()
             mock_tool_manager.get_tool_definitions.return_value = [
                 {"name": "get_course_outline"},
-                {"name": "search_course_content"}
+                {"name": "search_course_content"},
             ]
             mock_tool_manager.execute_tool.side_effect = [
                 "Course Outline: Lesson 1, Lesson 2, Lesson 3",  # First tool succeeds
-                "No relevant content found."  # Second tool fails
+                "No relevant content found.",  # Second tool fails
             ]
 
             generator = AIGenerator("test-key", "claude-sonnet-4-20250514")
@@ -362,7 +398,7 @@ class TestAIGeneratorToolCalling:
             response = generator.generate_response(
                 "Give me details about Test Course lessons",
                 tools=mock_tool_manager.get_tool_definitions(),
-                tool_manager=mock_tool_manager
+                tool_manager=mock_tool_manager,
             )
 
             # Should indicate partial success
@@ -379,12 +415,16 @@ class TestAIGeneratorToolCalling:
             general_response = Mock()
             general_response.stop_reason = "stop"
             general_response.content = [Mock()]
-            general_response.content[0].text = "General knowledge response without tools"
+            general_response.content[0].text = (
+                "General knowledge response without tools"
+            )
 
             mock_client.messages.create.return_value = general_response
 
             mock_tool_manager = Mock()
-            mock_tool_manager.get_tool_definitions.return_value = [{"name": "search_course_content"}]
+            mock_tool_manager.get_tool_definitions.return_value = [
+                {"name": "search_course_content"}
+            ]
 
             generator = AIGenerator("test-key", "claude-sonnet-4-20250514")
 
@@ -392,13 +432,13 @@ class TestAIGeneratorToolCalling:
             response = generator.generate_response(
                 "What is the capital of France?",
                 tools=mock_tool_manager.get_tool_definitions(),
-                tool_manager=mock_tool_manager
+                tool_manager=mock_tool_manager,
             )
 
             # Verify system prompt was used and tools weren't called for general question
             call_args = mock_client.messages.create.call_args[1]
             system_content = call_args["system"]
-            
+
             # Check key parts of system prompt are present
             assert "course materials and educational content" in system_content
             assert "Content Search Tool" in system_content
@@ -422,7 +462,7 @@ class TestAIGeneratorToolCalling:
             context_response.content[0].id = "tool_123"
             context_response.content[0].input = {
                 "query": "lesson 2 content",
-                "course_name": "Course A"  # Should extract from context
+                "course_name": "Course A",  # Should extract from context
             }
 
             final_response = Mock()
@@ -432,8 +472,12 @@ class TestAIGeneratorToolCalling:
             mock_client.messages.create.side_effect = [context_response, final_response]
 
             mock_tool_manager = Mock()
-            mock_tool_manager.get_tool_definitions.return_value = [{"name": "search_course_content"}]
-            mock_tool_manager.execute_tool.return_value = "Lesson 2 covers advanced topics"
+            mock_tool_manager.get_tool_definitions.return_value = [
+                {"name": "search_course_content"}
+            ]
+            mock_tool_manager.execute_tool.return_value = (
+                "Lesson 2 covers advanced topics"
+            )
 
             generator = AIGenerator("test-key", "claude-sonnet-4-20250514")
 
@@ -444,7 +488,7 @@ class TestAIGeneratorToolCalling:
                 "What's in lesson 2?",  # Ambiguous without context
                 conversation_history=conversation_history,
                 tools=mock_tool_manager.get_tool_definitions(),
-                tool_manager=mock_tool_manager
+                tool_manager=mock_tool_manager,
             )
 
             # Verify conversation history was included in system prompt

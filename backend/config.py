@@ -33,9 +33,11 @@ config = Config()
 # Validate critical configuration
 if config.MAX_RESULTS <= 0:
     raise ValueError(f"MAX_RESULTS must be > 0, got {config.MAX_RESULTS}")
-    
+
 if not config.ANTHROPIC_API_KEY:
     print("WARNING: ANTHROPIC_API_KEY not set - queries will fail")
-    
+
 if config.MAX_RESULTS > 50:
-    print(f"WARNING: MAX_RESULTS={config.MAX_RESULTS} may be too high and cause performance issues")
+    print(
+        f"WARNING: MAX_RESULTS={config.MAX_RESULTS} may be too high and cause performance issues"
+    )
