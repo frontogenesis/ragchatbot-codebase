@@ -31,14 +31,14 @@
     --background: #ffffff;
     --surface: #f8fafc;
     --surface-hover: #e2e8f0;
-    --text-primary: #1e293b;
-    --text-secondary: #64748b;
-    --border-color: #e2e8f0;
+    --text-primary: #0f172a;
+    --text-secondary: #475569;
+    --border-color: #cbd5e1;
     --user-message: #2563eb;
     --assistant-message: #f1f5f9;
-    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
     --radius: 12px;
-    --focus-ring: rgba(37, 99, 235, 0.2);
+    --focus-ring: rgba(37, 99, 235, 0.15);
     --welcome-bg: #f0f7ff;
     --welcome-border: #2563eb;
 }

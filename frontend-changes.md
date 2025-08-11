@@ -84,9 +84,9 @@ The implementation uses CSS custom properties (variables) that are redefined bas
 - Surface Hover: `#e2e8f0` (Slate 200)
 - Text Primary: `#0f172a` (Slate 900) - 21:1 contrast ratio
 - Text Secondary: `#475569` (Slate 600) - 9.4:1 contrast ratio
-- Border: `#cbd5e1` (Slate 300)
-- Shadow: Reduced opacity for lighter appearance
-- Focus Ring: Slightly reduced opacity for better visibility
+- Border: `#cbd5e1` (Slate 300) - Enhanced for better visual hierarchy
+- Shadow: `0 4px 6px -1px rgba(0, 0, 0, 0.08)` - Reduced opacity for lighter appearance
+- Focus Ring: `rgba(37, 99, 235, 0.15)` - Slightly reduced opacity for better visibility
 
 #### **Accessibility Features**
 - All text meets WCAG AAA contrast standards (7:1+ ratio)
@@ -110,3 +110,5 @@ Uses CSS transforms and opacity to create smooth transitions between sun and moo
 - **Optimized Shadows**: Reduced shadow opacity (0.08 vs 0.3) for a cleaner light appearance
 - **Better Border Hierarchy**: Uses `#cbd5e1` for primary borders providing clear but subtle visual separation
 - **Surface Differentiation**: Clear hierarchy between background (`#ffffff`), surface (`#f8fafc`), and hover states (`#e2e8f0`)
+- **Improved Text Contrast**: Updated text-primary to `#0f172a` and text-secondary to `#475569` for maximum readability
+- **Enhanced Focus States**: Reduced focus ring opacity to 0.15 for better visual balance in light theme
